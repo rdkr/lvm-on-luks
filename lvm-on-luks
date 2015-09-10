@@ -3,7 +3,7 @@
 noise () {
 
     # fill luks container partition with noise (takes a long time for larger partitions) http://serverfault.com/a/415962
-    #openssl enc -aes-256-ctr -pass pass:"$(dd if=/dev/urandom bs=128 count=1 2>/dev/null | base64)" -nosalt < /dev/zero > /dev/$1$2
+    openssl enc -aes-256-ctr -pass pass:"$(dd if=/dev/urandom bs=128 count=1 2>/dev/null | base64)" -nosalt < /dev/zero > /dev/$1$2
 
 }
 
@@ -22,6 +22,7 @@ install() {
     lvcreate -n root -L 100G lvm
     lvcreate -n home -L 100G lvm
 
+    # http://stackoverflow.com/a/1885534
     read -p "Install Ubuntu now. Respond AFTER INSTALLING - is /boot encrypted? [y/n]: " -n 1 -r
 
     if [[ $REPLY =~ ^[Yy]$ ]]
@@ -99,5 +100,5 @@ fi
 
 if [ $3 == "postinstall" ]
 then
-    preinstall $1 $2
+    postinstall $1 $2
 fi
