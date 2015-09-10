@@ -18,12 +18,21 @@ install() {
 
     pvcreate /dev/mapper/lvm
     vgcreate lvm /dev/mapper/lvm
-    lvcreate -n swap -L 4G lvm
-    lvcreate -n root -L 100G lvm
-    lvcreate -n home -L 100G lvm
+
+    lvcreate -n swap -L $3G lvm
+    lvcreate -n root -L $4G lvm
+
+    if [ -z "$5" ]
+    then
+        lvcreate -n home -l 100%FREE lvm
+    else
+        lvcreate -n home -L $5G lvm
+    fi
 
     # http://stackoverflow.com/a/1885534
-    read -p "Install Ubuntu now. Respond AFTER INSTALLING - is /boot encrypted? [y/n]: " -n 1 -r
+    echo
+    read -p "Install Ubuntu NOW. Respond AFTER - is /boot encrypted? [y/n]: " -n 1 -r
+    echo
 
     if [[ $REPLY =~ ^[Yy]$ ]]
     then
@@ -82,9 +91,10 @@ postinstall() {
 
 }
 
-if [[ "$#" -ne 3 ]] || [[ $EUID -ne 0 ]]
+if [[ $EUID -ne 0 ]]
 then
-    echo "sudo bash lvm-on-luks <disk: sdx> <partition: y> <command: noise, install>"
+    echo "sudo bash lvm-on-luks <disk: sdx> <partition: y> noise"
+    echo "sudo bash lvm-on-luks <disk: sdx> <partition: y> install <swap size / G> <root size / G> [home size / G - default remaining]"
     exit
 fi
 
@@ -95,7 +105,7 @@ fi
 
 if [ $3 == "install" ]
 then
-    install $1 $2
+    install $1 $2 $4 $5 $6
 fi
 
 if [ $3 == "postinstall" ]
