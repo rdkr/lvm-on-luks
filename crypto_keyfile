@@ -1,0 +1,16 @@
+#!/bin/sh
+
+PREREQ="lvm"
+prereqs()
+{
+    echo "$PREREQ"
+}
+
+case $1 in
+prereqs)
+    prereqs
+    exit 0
+    ;;   
+esac
+
+cp /crypto_keyfile.bin "${DESTDIR}"
