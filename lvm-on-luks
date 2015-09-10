@@ -2,86 +2,88 @@
 
 noise () {
 
-    # fill luks container partition with noise (takes a long time for larger partitions)
-    sudo openssl enc -aes-256-ctr -pass pass:"$(dd if=/dev/urandom bs=128 count=1 2>/dev/null | base64)" -nosalt < /dev/zero > /dev/$1$2
+    # fill luks container partition with noise (takes a long time for larger partitions) http://serverfault.com/a/415962
+    #openssl enc -aes-256-ctr -pass pass:"$(dd if=/dev/urandom bs=128 count=1 2>/dev/null | base64)" -nosalt < /dev/zero > /dev/$1$2
 
 }
 
-preinstall() {
+install() {
 
     ### setup luks
 
-    sudo cryptsetup luksFormat /dev/$1$2
-    sudo cryptsetup luksOpen /dev/$1$2 lvm
+    cryptsetup luksFormat /dev/$1$2
+    cryptsetup luksOpen /dev/$1$2 lvm
 
     ### setup lvm in luks
 
-    sudo pvcreate /dev/mapper/lvm
-    sudo vgcreate lvm /dev/mapper/lvm
-    sudo lvcreate -n swap -L 4G lvm
-    sudo lvcreate -n root -L 100G lvm
-    sudo lvcreate -n home -L 100G lvm
+    pvcreate /dev/mapper/lvm
+    vgcreate lvm /dev/mapper/lvm
+    lvcreate -n swap -L 4G lvm
+    lvcreate -n root -L 100G lvm
+    lvcreate -n home -L 100G lvm
+
+    read -p "Install Ubuntu now. Respond AFTER INSTALLING - is /boot encrypted? [y/n]: " -n 1 -r
+
+    if [[ $REPLY =~ ^[Yy]$ ]]
+    then
+        
+        ### mount and chroot to new install 
+
+        # Mount root partition: 
+        mount /dev/mapper/lvm-root /mnt
+
+        # Mount your virtual filesystems:
+        for i in /dev /dev/pts /proc /sys /run; do mount -B $i /mnt$i; done
+
+        # chroot to fresh install, copy necessary files, and run postinstall
+        cp lvm-on-luks /mnt/lvm-on-luks
+        cp crypto_keyfile /mnt/crypto_keyfile   
+        chroot /mnt bash lvm-on-luks $1 $2 postinstall
+
+    fi
 
 }
 
 postinstall() {
 
-    ### mount and chroot to new install 
-
-    # Mount root partition: 
-    sudo mount /dev/mapper/lvm-root /mnt
-
-    # Mount your virtual filesystems:
-    for i in /dev /dev/pts /proc /sys /run; do sudo mount -B $i /mnt$i; done
-
-    # chroot to fresh install
-    sudo cp lvm-on-luks /mnt/lvm-on-luks
-    sudo cp crypto_keyfile /mnt/crypto_keyfile	
-
-    sudo chroot /mnt sudo bash lvm-on-luks $1 $2 post2
-
-}
-
-postinstall2() {
-
     ### configure grub 
     
-    sudo echo "GRUB_ENABLE_CRYPTODISK=y" >> /etc/default/grub
-    sudo echo "GRUB_CMDLINE_LINUX=\"cryptdevice=$(blkid -s UUID -o value /dev/$2$3):lvm\""  >> /etc/default/grub
-    sudo grub-mkconfig -o /boot/grub/grub.cfg
-    sudo grub-install /dev/$1
+    echo "GRUB_ENABLE_CRYPTODISK=y" >> /etc/default/grub
+    echo "GRUB_CMDLINE_LINUX=\"cryptdevice=$(blkid -s UUID -o value /dev/$2$3):lvm\""  >> /etc/default/grub
+    grub-mkconfig -o /boot/grub/grub.cfg
+    grub-install /dev/$1
 
     ### add luks to crypttab
 
     # make a new key and add it to the luks container
-    sudo dd bs=512 count=4 if=/dev/urandom of=/crypto_keyfile.bin
-    sudo cryptsetup luksAddKey /dev/$1$2 /crypto_keyfile.bin
+    dd bs=512 count=4 if=/dev/urandom of=/crypto_keyfile.bin
+    cryptsetup luksAddKey /dev/$1$2 /crypto_keyfile.bin
 
     # copy the script which will add the key file to initram and make executable
-    sudo cp crypto_keyfile /etc/initramfs-tools/hooks/crypto_keyfile
-    sudo chmod +x /etc/initramfs-tools/hooks/crypto_keyfile
+    cp crypto_keyfile /etc/initramfs-tools/hooks/crypto_keyfile
+    chmod +x /etc/initramfs-tools/hooks/crypto_keyfile
 
     # update cryptab with uuid of drive and details for keyfile decryption
-    sudo echo "lvm UUID=$(blkid -s UUID -o value /dev/$1$2) /crypto_keyfile.bin luks,keyscript=/bin/cat" > /etc/crypttab
+    echo "lvm UUID=$(blkid -s UUID -o value /dev/$1$2) /crypto_keyfile.bin luks,keyscript=/bin/cat" > /etc/crypttab
 
     # update ramdisk
-    sudo update-initramfs -u
+    update-initramfs -u
 
     ### cleanup and secure new boot and keyfile. run in new install
 
-    sudo chmod 000 /crypto_keyfile.bin
-    sudo chmod -R g-rwx,o-rwx /boot
+    chmod 000 /crypto_keyfile.bin
+    chmod -R g-rwx,o-rwx /boot
 
     # remove ubiquity if its still there due to crash installer crash (?)
-    sudo apt-get -y remove ubiquity
+    apt-get -y remove ubiquity
 
-    sudo rm lvm-on-luks crypto_keyfile
+    rm lvm-on-luks crypto_keyfile
 
 }
 
-if [[ "$#" -ne 3 ]]
+if [[ "$#" -ne 3 ]] || [[ $EUID -ne 0 ]]
 then
-    echo "you should have arguments: sdx y command"
+    echo "sudo bash lvm-on-luks <disk: sdx> <partition: y> <command: noise, install>"
     exit
 fi
 
@@ -90,17 +92,12 @@ then
     noise $1 $2
 fi
 
-if [ $3 == "pre" ]
+if [ $3 == "install" ]
+then
+    install $1 $2
+fi
+
+if [ $3 == "postinstall" ]
 then
     preinstall $1 $2
-fi
-
-if [ $3 == "post" ]
-then
-    postinstall $1 $2
-fi
-
-if [ $3 == "post2" ]
-then
-    postinstall2 $1 $2
 fi
