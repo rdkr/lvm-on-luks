@@ -31,7 +31,9 @@ install() {
 
     # http://stackoverflow.com/a/1885534
     echo
-    read -p "Install Ubuntu NOW. Respond AFTER - is /boot encrypted? [y/n]: " -n 1 -r
+    read -p "Install Ubuntu. Press [Enter] upon completion." -r
+    echo
+    read -p "Is /boot on LVM? [y/N]: " -r
     echo
 
     if [[ $REPLY =~ ^[Yy]$ ]]
@@ -91,10 +93,10 @@ postinstall() {
 
 }
 
-if [[ $EUID -ne 0 ]]
+if [[ "$#" -lt 3 ]] || [[ $EUID -ne 0 ]]
 then
     echo "sudo bash lvm-on-luks <disk: sdx> <partition: y> noise"
-    echo "sudo bash lvm-on-luks <disk: sdx> <partition: y> install <swap size / G> <root size / G> [home size / G - default remaining]"
+    echo "sudo bash lvm-on-luks <disk: sdx> <partition: y> install <swap size in G> <root size in G> [home size in G - default: all remaining]"
     exit
 fi
 
