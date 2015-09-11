@@ -3,7 +3,7 @@
 noise () {
 
     # fill luks container partition with noise (takes a long time for larger partitions) http://serverfault.com/a/415962
-    openssl enc -aes-256-ctr -pass pass:"$(dd if=/dev/urandom bs=128 count=1 2>/dev/null | base64)" -nosalt < /dev/zero > /dev/$1$2
+    #openssl enc -aes-256-ctr -pass pass:"$(dd if=/dev/urandom bs=128 count=1 2>/dev/null | base64)" -nosalt < /dev/zero > /dev/$1$2
 
 }
 
@@ -16,11 +16,17 @@ install() {
 
     ### setup lvm in luks
 
+    # create physical volume on in new luks container
     pvcreate /dev/mapper/lvm
+
+    # create virtual group called lvm in physical volume
     vgcreate lvm /dev/mapper/lvm
 
+    # create logical volumes in lvm group for /swap and /root, of specified sizes
     lvcreate -n swap -L $3G lvm
     lvcreate -n root -L $4G lvm
+
+    # use specified size for home, or if none is provided use all remaining space
 
     if [ -z "$5" ]
     then
@@ -29,6 +35,8 @@ install() {
         lvcreate -n home -L $5G lvm
     fi
 
+    ### prompt to install and get details for postinstall 
+
     # http://stackoverflow.com/a/1885534
     echo
     read -p "Install Ubuntu. Press [Enter] upon completion..." -r
@@ -36,36 +44,39 @@ install() {
     read -p "Is /boot on LVM? [y/N]: " -r
     echo
 
-    ### mount and chroot to new install 
+    ### mount new install 
 
     # Mount root partition: 
     mount /dev/mapper/lvm-root /mnt
-    echo !!
 
     # Mount your virtual filesystems:
     for i in /dev /dev/pts /proc /sys /run
         do mount -B $i /mnt$i
-        echo !!
     done
 
     # copy necessary files to new install
     cp lvm-on-luks /mnt/lvm-on-luks
      
+    ### finish mounting new install depending on whether /boot is encrypted or not
 
     if [[ $REPLY =~ ^[Yy]$ ]]
     then
         
-        cp crypto_keyfile /mnt/crypto_keyfile  
+        # if /boot is encrypted, copy crypto_keyfile script and 
+        cp crypto_keyfile /mnt/crypto_keyfile 
+
+        # chroot to new fully mounted install
         chroot /mnt bash lvm-on-luks $1 $2 postinstall_encryptedboot
 
     else
 
-        read -p "Where is the /boot partition (e.g. '/dev/sda1'): " -r
+        # if /boot is not encrypted, find out where it is and mount it
+        read -p "Where is the /boot partition? (e.g. '/dev/sda1'): " -r
         echo
 
         mount $REPLY /mnt/boot
-        echo !! 
 
+        # chroot to new fully mounted install
         chroot /mnt bash lvm-on-luks $1 $2 postinstall_clearboot
 
     fi
@@ -79,7 +90,8 @@ postinstall_clearboot() {
     # update cryptab with uuid of drive and details for keyfile decryption
     echo "lvm UUID=$(blkid -s UUID -o value /dev/$1$2) none luks" > /etc/crypttab
 
-    # update ramdisk
+    ### update ramdisk
+    
     update-initramfs -u
 
     ### cleanup and secure new boot
@@ -113,7 +125,8 @@ postinstall_encryptedboot() {
     # update cryptab with uuid of drive and details for keyfile decryption
     echo "lvm UUID=$(blkid -s UUID -o value /dev/$1$2) /crypto_keyfile.bin luks,keyscript=/bin/cat" > /etc/crypttab
 
-    # update ramdisk
+    ### update ramdisk
+
     update-initramfs -u
 
     ### cleanup and secure new boot and keyfile. run in new install
