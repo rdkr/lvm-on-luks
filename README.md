@@ -1,16 +1,54 @@
 # ubuntu-lvm-on-luks
-Script to set up full partition encryption for Ubuntu (including /boot) using LVM on LUKS, for use with dual boot
+Script to set up full partition encryption for Ubuntu (optionally including /boot) using LVM on LUKS, for use with dual boot
 
-Ubiquity (the Ubuntu installer) will set up encryption and LVM automatically but only for a blank drive. This script automates the installation of LUKS encryption, LVM volume management, and GRUB boot manager for an Ubuntu installation which will be entirely contained on one hard drive partition (including /boot). This is useful for a fully encrypted Ubuntu installation on a dual boot machine.
+Ubiquity (the Ubuntu installer) will set up encryption and LVM automatically but only using for an entire drive; this is not appropriate for dual booting with an existing OS. This script automates the installation of LUKS encryption, LVM volume management, and GRUB boot manager during an Ubuntu installation.
 
-As /boot is encrypted it must first be unencrypted to be loaded by GRUB; this is done with a password before GRUB. GRUB does not pass the key on so a second unencryption is needed such that /boot can launch Ubuntu; the script sets up a keyfile which is used for this purpose and the password is therefore only entered once. Note that this means the password must be entered before GRUB, even to access the main GRUB page to boot into another OS. If this is undesirable, an alternative and more common approach is to have /boot unencrypted on second hard drive partition with the rest of the installation on a LUKS/LVM partition as here; the key (in the form of a password) is needed only after GRUB with the tradeoff that /boot is unencrypted. 
 Please note that I am not an expert and this was written as a learning exercise. Many thanks to Pavel Kovan and the Ubuntu community (see References below). Any contributions or advice are more than welcome.
 
-1. create partition sdxy for the LUKS container
-2. `sudo bash lvm-on-luks sdx y noise` - this will fill the new partition with encrypted noise so nothing about the size or structure of the encrypted content can be learnt from examining the hard drive partition
-3. `sudo bash lvm-on-luks sdx y pre` - this sets up LUKS and LVM volumes for installation. It will ask for a password three times (twice to create and once to open the encypted volume).
-4. install ubuntu as usual using Ubiquity. / on lvm-root (ext4), /home on lvm-home (ext4), and swap-space on lvm-swap (swap). /sdx for bootloader; I found that the bootloader installation failed everytime (select continue without bootloader) and sometimes crashed, but this doesn't matter as the script must re-install GRUB with modified config anyway. 
-5. `sudo bash lvm-on-luks sdX Y post` - this configures GRUB and sets up initramfs to automatically load a keyfile rather than requires the password a second time. It also runs an apt-get remove for Ubiquity as I found that it persists after the installation with 'Install REVISION' on the launcher, which I believe may be due to the bootloader installation and consequently Ubiquity failing.
+## Unencrypted boot
+This is a more common method for full system encryption, and uses two disk partitions: one for /boot and one for LVM on LUKS which contains / /home and /swap.
+
+### Instructions
+1. Create two partitions: sdxy for the LUKS container, and sdxz for the /boot partition
+2. Optionally fill the LUKS container partition with enecrypted noise to prevent an attacker from potentially learning about the size or structure of the contents, and to destroy any data currently on the partition.
+    
+    `sudo bash lvm-on-luks sdx y noise`
+
+3. Run the install script, providing the size in GB of /, /home, and /swap
+
+    `sudo bash lvm-on-luks <disk: sdx> <partition: y> install <swap size in G> <root size in G> [home size in G - default: all remaining]`
+
+    This command will ask for an encrpytion password three times (twice to create and once to open the encypted volume) in order to set up the the LUKS container and LVM volumes ready for installation. It will then pause and prompt for Ubuntu to be installed.
+    
+4. Install Ubuntu as usual using Ubiquity to format the new logical volumes: / on lvm-root (ext4), /home on lvm-home (ext4), and swap space on lvm-swap; /boot on /sdxz; bootloader on /sdx.
+
+5. Return to the script and press [Enter] twice to continue running the script for a non encrypted /boot. This will run the remainder of the script to set up crypttab and will ask for the location of the /boot partition before running update-initramfs. Upon exit of the script, restart the computer.
+
+## Encrypted boot
+It is possible to also encrypt /boot on LVM on LUKS, as decribed by Pavel Kovan (see References). Note that this is a less common option and does have potential drawbacks for dual boot use, as the LUKS password must be entered regardless of which OS is booted. Importantly, it does NOT protect against an evil maid type attacker with physical access to the machine, as the bootloader is unencrypted and could be modified to capture the password. An external / encrypted bootloader, for example running from / decrypting from USB, could mitigate this and improve security, but this script does not yet accomodate that.
+
+As /boot is on LVM on LUKS, the LUKS container must first be unencrypted and loaded by GRUB; this is done with the LUKS password before the GRUB menu. GRUB does not pass the key on to the ramdisk so a second unencryption must be performed by the ramdisk in order to mount the other logical volumes. Rather than enter the password twice, the script sets up a keyfile for LUKS which is contained within initramfs (which is encrypted until the password is entered to GRUB) and is used automatically instead of a duplicate password entry.
+
+As mentioned above, this setup means the LUKS password must be entered before GRUB, even to access the GRUB menu; if the password is not supplied, GRUB will enter rescue mode. For a dual boot system this may be inconvenient. It may be possible to address this for other encrypted dual boot OSes sharing a common password, and is something for future research. Overall, this method does not have much benefit over the more common first method for the reason described in the first paragraph of this section.
+
+### Instructions
+1. Create one partitions: sdxy for the LUKS container
+2. Optionally fill the LUKS container partition with enecrypted noise to prevent an attacker from potentially learning about the size or structure of the contents, and to destroy any data currently on the partition.
+    
+    `sudo bash lvm-on-luks sdx y noise`
+
+3. Run the install script, providing the size in GB of / (which will also contain /boot), /home, and /swap
+
+    `sudo bash lvm-on-luks <disk: sdx> <partition: y> install <swap size in G> <root size in G> [home size in G - default: all remaining]`
+
+    This command will ask for an encrpytion password three times (twice to create and once to open the encypted volume) in order to set up the the LUKS container and LVM volumes ready for installation. It will then pause and prompt for Ubuntu to be installed.
+    
+4. Install Ubuntu as usual using Ubiquity to format the new logical volumes: / on lvm-root (ext4), /home on lvm-home (ext4), and swap space on lvm-swap; bootloader on /sdx.  I found using this method that the bootloader installation failed every time (select continue without bootloader) and sometimes crashed, but this doesn't matter as the script must re-install GRUB with modified config anyway. 
+
+5. Return to the script and press [Enter] once, then answer 'y' to the question and press [Enter] again. This will run the remainder of the script to set up GRUB, the keyfile, and crypttab before running update-initramfs. It also runs an apt-get remove for Ubiquity as I found that it persists after the installation with 'Install REVISION' on the launcher, which I believe may be due to the bootloader installation and consequently Ubiquity failing. Upon exit of the script, restart the computer.
+
+## Limitations
+The script is currently untested with GPT partitioned disks, and does not set up /swap for use with hibernation. The /boot encryption provided in this is of questionable benefit without further work to run an encrypted or external bootloader.
 
 ##References
 
