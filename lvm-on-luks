@@ -39,10 +39,14 @@ install() {
     ### mount and chroot to new install 
 
     # Mount root partition: 
-    mount -V /dev/mapper/lvm-root /mnt
+    mount /dev/mapper/lvm-root /mnt
+    echo !!
 
     # Mount your virtual filesystems:
-    for i in /dev /dev/pts /proc /sys /run; do mount -V -B $i /mnt$i; done
+    for i in /dev /dev/pts /proc /sys /run
+        do mount -B $i /mnt$i
+        echo !!
+    done
 
     # copy necessary files to new install
     cp lvm-on-luks /mnt/lvm-on-luks
@@ -59,7 +63,8 @@ install() {
         read -p "Where is the /boot partition (e.g. '/dev/sda1'): " -r
         echo
 
-        mount -V $REPLY /mnt/boot 
+        mount $REPLY /mnt/boot
+        echo !! 
 
         chroot /mnt bash lvm-on-luks $1 $2 postinstall_clearboot
 
