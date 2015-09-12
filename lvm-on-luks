@@ -3,7 +3,7 @@
 noise () {
 
     # fill luks container partition with noise (takes a long time for larger partitions) http://serverfault.com/a/415962
-    #openssl enc -aes-256-ctr -pass pass:"$(dd if=/dev/urandom bs=128 count=1 2>/dev/null | base64)" -nosalt < /dev/zero > /dev/$1$2
+    openssl enc -aes-256-ctr -pass pass:"$(dd if=/dev/urandom bs=128 count=1 2>/dev/null | base64)" -nosalt < /dev/zero > /dev/$1$2
 
 }
 

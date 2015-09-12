@@ -3,7 +3,7 @@ Script to set up full partition encryption for Ubuntu (optionally including /boo
 
 Ubiquity (the Ubuntu installer) will set up encryption and LVM automatically but only using for an entire drive; this is not appropriate for dual booting with an existing OS. This script automates the installation of LUKS encryption, LVM volume management, and GRUB boot manager during an Ubuntu installation.
 
-Please note that I am not an expert and this was written as a learning exercise. Many thanks to Pavel Kovan and the Ubuntu community (see References below). Any contributions or advice are more than welcome.
+Please note that I am not an expert and this was written as a learning exercise. Many thanks to Pavel Kogan and the Ubuntu community (see References below). Any contributions or advice are more than welcome.
 
 ## Unencrypted boot
 This is a more common method for full system encryption, and uses two disk partitions: one for /boot and one for LVM on LUKS which contains / /home and /swap.
@@ -25,7 +25,7 @@ This is a more common method for full system encryption, and uses two disk parti
 5. Return to the script and press [Enter] twice to continue running the script for a non encrypted /boot. This will run the remainder of the script to set up crypttab and will ask for the location of the /boot partition before running update-initramfs. Upon exit of the script, restart the computer.
 
 ## Encrypted boot
-It is possible to also encrypt /boot on LVM on LUKS, as decribed by Pavel Kovan (see References). Note that this is a less common option and does have potential drawbacks for dual boot use, as the LUKS password must be entered regardless of which OS is booted. Importantly, it does NOT protect against an evil maid type attacker with physical access to the machine, as the bootloader is unencrypted and could be modified to capture the password. An external / encrypted bootloader, for example running from / decrypting from USB, could mitigate this and improve security, but this script does not yet accomodate that.
+It is possible to also encrypt /boot on LVM on LUKS, as decribed by Pavel Kogan (see References). Note that this is a less common option and does have potential drawbacks for dual boot use, as the LUKS password must be entered regardless of which OS is booted. Importantly, it does NOT protect against an evil maid type attacker with physical access to the machine, as the bootloader is unencrypted and could be modified to capture the password. An external / encrypted bootloader, for example running from / decrypting from USB, could mitigate this and improve security, but this script does not yet accomodate that.
 
 As /boot is on LVM on LUKS, the LUKS container must first be unencrypted and loaded by GRUB; this is done with the LUKS password before the GRUB menu. GRUB does not pass the key on to the ramdisk so a second unencryption must be performed by the ramdisk in order to mount the other logical volumes. Rather than enter the password twice, the script sets up a keyfile for LUKS which is contained within initramfs (which is encrypted until the password is entered to GRUB) and is used automatically instead of a duplicate password entry.
 
