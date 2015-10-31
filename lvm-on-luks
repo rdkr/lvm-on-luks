@@ -12,29 +12,43 @@ install() {
     ### setup luks
 
     cryptsetup luksFormat /dev/$1$2
-    cryptsetup luksOpen /dev/$1$2 lvm
+    cryptsetup luksOpen /dev/$1$2 crypt
 
     ### setup lvm in luks
 
     # create physical volume on in new luks container
-    pvcreate /dev/mapper/lvm
+    pvcreate /dev/mapper/crypt
 
     # create virtual group called lvm in physical volume
-    vgcreate lvm /dev/mapper/lvm
+    vgcreate lvm /dev/mapper/crypt
 
-    # create logical volumes in lvm group for /swap and /root, of specified sizes
+    # create logical volume in lvm group for /swap of specified size
     lvcreate -n swap -L $3G lvm
-    lvcreate -n root -L $4G lvm
 
-    # use specified size for home, or if none is provided use all remaining space
-
-    if [ -z "$5" ]
+    # create logical volume in lvm group for /root of specified size
+    # or use all remaining space if 0 is specified
+    
+    if [ "$4" -eq 0 ]
     then
-        lvcreate -n home -l 100%FREE lvm
-    else
-        lvcreate -n home -L $5G lvm
-    fi
 
+        lvcreate -n root -l 100%FREE lvm
+
+    else
+        
+        lvcreate -n root -L $4G lvm
+
+        # create logical volume in lvm group for /home of specified size
+        # or use all remaining space if 0 is specified
+
+        if [ "$5" -eq 0 ]
+        then
+            lvcreate -n home -l 100%FREE lvm
+        else
+            lvcreate -n home -L $5G lvm
+        fi
+
+    fi
+    
     ### prompt to install and get details for postinstall 
 
     # http://stackoverflow.com/a/1885534
@@ -88,7 +102,7 @@ postinstall_clearboot() {
     ### add luks to crypttab
 
     # update cryptab with uuid of drive and details for keyfile decryption
-    echo "lvm UUID=$(blkid -s UUID -o value /dev/$1$2) none luks" > /etc/crypttab
+    echo "crypt UUID=$(blkid -s UUID -o value /dev/$1$2) none luks" > /etc/crypttab
 
     ### update ramdisk
     
@@ -123,7 +137,7 @@ postinstall_encryptedboot() {
     ### add luks to crypttab
 
     # update cryptab with uuid of drive and details for keyfile decryption
-    echo "lvm UUID=$(blkid -s UUID -o value /dev/$1$2) /crypto_keyfile.bin luks,keyscript=/bin/cat" > /etc/crypttab
+    echo "crypt UUID=$(blkid -s UUID -o value /dev/$1$2) /crypto_keyfile.bin luks,keyscript=/bin/cat" > /etc/crypttab
 
     ### update ramdisk
 
@@ -143,8 +157,16 @@ postinstall_encryptedboot() {
 
 if [[ "$#" -lt 3 ]] || [[ $EUID -ne 0 ]]
 then
+    echo ""
+    echo "must run as root!"
+    echo ""     
+    echo "to fill parition with noise:"   
     echo "sudo bash lvm-on-luks <disk: sdx> <partition: y> noise"
-    echo "sudo bash lvm-on-luks <disk: sdx> <partition: y> install <swap size in G> <root size in G> [home size in G - default: all remaining]"
+    echo ""   
+    echo "to install:"   
+    echo "sudo bash lvm-on-luks <disk: sdx> <partition: y> install <swap size> <root size> <home size>"
+    echo "all sizes in G. if root is 0, remaining space used (no home). if home is 0 all remaining space used."
+    echo ""
     exit
 fi
 
