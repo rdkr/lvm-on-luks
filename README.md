@@ -3,13 +3,11 @@ Script to set up full partition encryption for Ubuntu (optionally including /boo
 
 Ubiquity (the Ubuntu installer) will set up encryption and LVM automatically but only using for an entire drive; this is not appropriate for dual booting with an existing OS. This script automates the installation of LUKS encryption, LVM volume management, and GRUB boot manager during an Ubuntu installation.
 
-Many thanks to Pavel Kogan and the Ubuntu community (see References below). Any contributions or advice are more than welcome.
-
 ## Unencrypted boot
 This is a common method for full system encryption, and uses two disk partitions: one for /boot and one for LVM on LUKS which contains: `/`, `/swap`, and optionally `/home`.
 
 ### Instructions
-0. Refer to https://help.ubuntu.com/community/DiskSpace regarding partition sizes, including `/swap` and `/boot`, if unsure.
+0. Refer to https://help.ubuntu.com/community/DiskSpace regarding partition sizes, including `/swap` and `/boot`, if unsure. I suggest the higher end of the range for `/boot` ([one user found ~750MB to be a good size](https://github.com/rdkr/lvm-on-luks/issues/4)).
 1. Create two partitions: `sdxy` for the LUKS container, and `sdxz` for the /boot partition
 2. Optionally, fill the LUKS container partition with enecrypted noise to prevent an attacker from potentially learning about the size or structure of the contents, and to destroy any data currently on the partition.
     
@@ -62,16 +60,18 @@ As mentioned above, this setup means the LUKS password must be entered before GR
 5. Return to the script and press [Enter] once, then answer 'y' to the question and press [Enter] again. This will run the remainder of the script to set up GRUB, the keyfile, and crypttab before running update-initramfs. It also runs an apt-get remove for Ubiquity as I found that it persists after the installation with 'Install REVISION' on the launcher, which I believe may be due to the bootloader installation and consequently Ubiquity failing. Upon exit of the script, restart the computer.
 
 ## Limitations
-The script does not set up /swap for use with hibernation. The /boot encryption provided in this is of questionable benefit without further work to run an encrypted or external bootloader.
+The script does not set up `/swap` for use with hibernation. The `/boot` encryption provided in this is of questionable benefit without further work to run an encrypted or external bootloader.
 
-##References
+## Issues and Contributing
 
-http://www.pavelkogan.com/2014/05/23/luks-full-disk-encryption/
+If you encounter problems running the script I'm happy to help try to work through them with you - please open an issue! I'm also happy to review improvements and updates - please open a PR!
 
-http://www.pavelkogan.com/2015/01/25/linux-mint-encryption/
+## References
 
-https://wiki.archlinux.org/index.php/Dm-crypt/Encrypting_an_entire_system#LVM_on_LUKS
+Many thanks to Pavel Kogan for his work which formed the basis of this script, and to the Ubuntu community at large.
 
-http://manpages.ubuntu.com/manpages/hardy/man8/initramfs-tools.8.html
-
-https://unix.stackexchange.com/questions/107810/why-my-encrypted-lvm-volume-luks-device-wont-mount-at-boot-time
+* http://www.pavelkogan.com/2014/05/23/luks-full-disk-encryption/
+* http://www.pavelkogan.com/2015/01/25/linux-mint-encryption/
+* https://wiki.archlinux.org/index.php/Dm-crypt/Encrypting_an_entire_system#LVM_on_LUKS
+* http://manpages.ubuntu.com/manpages/hardy/man8/initramfs-tools.8.html
+* https://unix.stackexchange.com/questions/107810/why-my-encrypted-lvm-volume-luks-device-wont-mount-at-boot-time
