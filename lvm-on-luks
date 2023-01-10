@@ -1,99 +1,40 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-noise () {
+setup() {
 
-    # fill luks container partition with noise (takes a long time for larger partitions) http://serverfault.com/a/415962
-    openssl enc -pbkdf2 -pass pass:"$(dd if=/dev/urandom bs=128 count=1 2>/dev/null | base64)" -nosalt < /dev/zero > /dev/$1$2
-
-}
-
-install() {
-
-    ### setup luks
-
-    cryptsetup luksFormat /dev/$1$2
-    cryptsetup luksOpen /dev/$1$2 crypt
-
-    ### setup lvm in luks
-
-    # create physical volume on in new luks container
-    pvcreate /dev/mapper/crypt
-
-    # create virtual group called lvm in physical volume
-    vgcreate lvm /dev/mapper/crypt
-
-    # create logical volume in lvm group for /swap of specified size
-    lvcreate -n swap -L $3G lvm
-
-    # create logical volume in lvm group for /root of specified size
-    # or use all remaining space if 0 is specified
-    
-    if [ "$4" -eq 0 ]
-    then
-
-        lvcreate -n root -l 100%FREE lvm
-
+    # mount new install
+    if [[ -e "/dev/mapper/lvm-root" ]]; then
+        mount /dev/mapper/lvm-root /mnt
     else
-        
-        lvcreate -n root -L $4G lvm
-
-        # create logical volume in lvm group for /home of specified size
-        # or use all remaining space if 0 is specified
-
-        if [ "$5" -eq 0 ]
-        then
-            lvcreate -n home -l 100%FREE lvm
-        else
-            lvcreate -n home -L $5G lvm
-        fi
-
+        mount /dev/mapper/crypt /mnt
     fi
-    
-    ### prompt to install and get details for postinstall 
 
-    # http://stackoverflow.com/a/1885534
-    echo
-    read -p "Install Ubuntu. Press [Enter] upon completion..." -r
-    echo
-    read -p "Is /boot on LVM? [y/N]: " -r
-    echo
+    mount "$1$3" /mnt/boot
+    mount "$1$2" /mnt/boot/efi
 
-    ### mount new install 
-
-    # Mount root partition: 
-    mount /dev/mapper/lvm-root /mnt
-
-    # Mount your virtual filesystems:
-    for i in /dev /dev/pts /proc /sys /run
-        do mount -B $i /mnt$i
-    done
+    # Mount your virtual filesystems
+    for i in dev proc sys run; do mount --bind /$i /mnt/$i; done
 
     # copy necessary files to new install
     cp lvm-on-luks /mnt/lvm-on-luks
-     
-    ### finish mounting new install depending on whether /boot is encrypted or not
 
-    if [[ $REPLY =~ ^[Yy]$ ]]
-    then
-        
-        # if /boot is encrypted, copy crypto_keyfile script and 
-        cp crypto_keyfile /mnt/crypto_keyfile 
+}
 
-        # chroot to new fully mounted install
-        chroot /mnt bash lvm-on-luks $1 $2 postinstall_encryptedboot
+clearboot() {
 
-    else
+    setup
+    chroot /mnt bash lvm-on-luks $1 $2 $3 $4 postinstall_clearboot
 
-        # if /boot is not encrypted, find out where it is and mount it
-        read -p "Where is the /boot partition? (e.g. '/dev/sda1'): " -r
-        echo
+}
 
-        mount $REPLY /mnt/boot
+encryptedboot() {
 
-        # chroot to new fully mounted install
-        chroot /mnt bash lvm-on-luks $1 $2 postinstall_clearboot
+    setup
 
-    fi
+    # copy crypto_keyfile script and 
+    cp crypto_keyfile /mnt/crypto_keyfile 
+
+    chroot /mnt bash lvm-on-luks $1 $2 $3 $4 postinstall_encryptedboot
 
 }
 
@@ -155,37 +96,22 @@ postinstall_encryptedboot() {
 
 }
 
-if [[ "$#" -lt 3 ]] || [[ $EUID -ne 0 ]]
+if [[ $EUID -ne 0 ]]
 then
-    echo ""
     echo "must run as root!"
-    echo ""     
-    echo "to fill parition with noise:"   
-    echo "sudo bash lvm-on-luks <disk: sdx> <partition: y> noise"
-    echo ""   
-    echo "to install:"   
-    echo "sudo bash lvm-on-luks <disk: sdx> <partition: y> install <swap size> <root size> <home size>"
-    echo "all sizes in G. if root is 0, remaining space used (no home). if home is 0 all remaining space used."
-    echo ""
     exit
 fi
 
-if [ $3 == "noise" ]
+if [[ "$#" -ne 5 ]] || [[ ! -e "/dev/$1$2" ]] || [[ ! -e "/dev/$1$3" ]] || [[ ! -e "/dev/$1$4" ]]
 then
-    noise $1 $2
+    echo "check parameters!"
+    exit
 fi
 
-if [ $3 == "install" ]
-then
-    install $1 $2 $4 $5 $6
-fi
-
-if [ $3 == "postinstall_encryptedboot" ]
-then
-    postinstall_encryptedboot $1 $2
-fi
-
-if [ $3 == "postinstall_clearboot" ]
-then
-    postinstall_clearboot $1 $2
-fi
+echo "running: $5"
+echo ""
+echo "    efi: $1$2"
+echo "   boot: $1$3"
+echo "   root: $1$4"
+echo ""
+read -p "press enter to continue..."
