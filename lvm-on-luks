@@ -23,7 +23,7 @@ setup_mounts() {
     mount $efi /mnt/boot/efi
 
     # Mount your virtual filesystems
-    for i in dev proc sys run; do mount --bind /$i /mnt/$i; done
+    for i in dev proc sys run; do mount --rbind /$i /mnt/$i; done
 
     # copy necessary files to new install
     cp lvm-on-luks /mnt/lvm-on-luks
