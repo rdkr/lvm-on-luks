@@ -133,4 +133,4 @@ if [[ ! -e $efi ]] || [[ ! -e $efi ]] || [[ ! -e $root_luks ]] || [[ ! -e $root_
     exit
 fi
 
-$5
+$5 $@
