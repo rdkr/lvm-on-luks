@@ -2,15 +2,14 @@
 
 setup() {
 
+    read -p "press enter to continue..."
+    
+    set -x
+    
     # mount new install
-    if [[ -e "/dev/mapper/lvm-root" ]]; then
-        mount /dev/mapper/lvm-root /mnt
-    else
-        mount /dev/mapper/crypt /mnt
-    fi
-
-    mount "$1$3" /mnt/boot
-    mount "$1$2" /mnt/boot/efi
+    mount $root_ext4 /mnt
+    mount $boot /mnt/boot
+    mount $efi /mnt/boot/efi
 
     # Mount your virtual filesystems
     for i in dev proc sys run; do mount --bind /$i /mnt/$i; done
@@ -40,10 +39,12 @@ encryptedboot() {
 
 postinstall_clearboot() {
 
+    set -x
+    
     ### add luks to crypttab
 
     # update cryptab with uuid of drive and details for keyfile decryption
-    echo "crypt UUID=$(blkid -s UUID -o value /dev/$1$2) none luks" > /etc/crypttab
+    echo "crypt UUID=$(blkid -s UUID -o value $root_luks) none luks" > /etc/crypttab
 
     ### update ramdisk
     
@@ -58,6 +59,8 @@ postinstall_clearboot() {
 
 postinstall_encryptedboot() {
 
+    set -x
+    
     ### configure grub 
     
     echo "GRUB_ENABLE_CRYPTODISK=y" >> /etc/default/grub
@@ -96,24 +99,38 @@ postinstall_encryptedboot() {
 
 }
 
-if [[ $EUID -ne 0 ]]
-then
+echo "running lvm-on-luks: $5"
+echo ""
+
+if [[ $EUID -ne 0 ]]; then
     echo "must run as root!"
     exit
 fi
 
-if [[ "$#" -ne 5 ]] || [[ ! -e "/dev/$1$2" ]] || [[ ! -e "/dev/$1$3" ]] || [[ ! -e "/dev/$1$4" ]]
-then
+if [[ "$#" -ne 5 ]]; then
     echo "check parameters!"
     exit
 fi
 
-echo "running: $5"
-echo ""
-echo "    efi: $1$2"
-echo "   boot: $1$3"
-echo "   root: $1$4"
-echo ""
-read -p "press enter to continue..."
+efi=/dev/$1$2
+boot=/dev/$1$3
+root_luks=/dev/$1$4
 
-set -x
+if [[ -e "/dev/mapper/lvm-root" ]]; then
+    root_ext4=/dev/mapper/lvm-root
+else
+    root_ext4=/dev/mapper/crypt
+fi
+
+echo "      efi: $efi"
+echo "     boot: $boot"
+echo "root_luks: $root_luks"
+echo "root_ext4: $root_ext4"
+echo ""
+
+if [[ ! -e $efi ]] || [[ ! -e $efi ]] || [[ ! -e $root_luks ]] || [[ ! -e $root_ext4 ]]; then
+    echo "check mounts!"
+    exit
+fi
+
+$5
