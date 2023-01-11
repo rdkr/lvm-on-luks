@@ -73,10 +73,10 @@ These instructions were most recently developed / tested with Kubuntu 22.10 on a
     
     1. you can enable Secure Boot - just enroll the key using the password you set upon first boot
     1. manually configure the partitions:
-        - if not LVM: /dev/mapper/crypt -> /, don't format
-        - if LVM: /dev/mapper/root -> /, format as ext4
-        - /dev/<disk><boot paritition> -> /boot, format as ext4
-        - /dev/<disk><efi partition> -> bootloader device
+        - if not LVM: `/dev/mapper/crypt` -> `/`, don't format
+        - if LVM: `/dev/mapper/root` -> `/`, format as ext4 + any other volumes as desired
+        - `/dev/<disk><boot paritition>` -> `/boot`, format as ext4
+        - `/dev/<disk><efi partition>` -> bootloader device
 
 1. Run the `lvm-on-luks` script
     
