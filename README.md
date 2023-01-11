@@ -26,6 +26,15 @@ This is a common method for full system encryption, and uses two disk partitions
 
     1. boot partition - [recommended ~750MB](https://github.com/rdkr/lvm-on-luks/issues/4)), e.g `nvme0n1p3` 
     1. LUKS partition  - rest of the available space, e.g `nvme0n1p4`
+    
+    Set some variables for later:
+    
+    ```
+    disk=<disk>
+    efi_partition=<efi partition>
+    boot_partition=<boot partition>
+    luks_partition=<luks partion>
+    ```
 
 1. Optionally, fill the partitions with noise
 
@@ -39,10 +48,13 @@ This is a common method for full system encryption, and uses two disk partitions
 
     ```
     # create the LUKS container
-    cryptsetup luksFormat /dev/$1$2
+    cryptsetup luksFormat /dev/$disk$luks_partition
 
     # open the LUKS container and name it crypt
-    cryptsetup luksOpen /dev/$1$2 crypt
+    cryptsetup luksOpen /dev/$disk$luks_partition crypt
+    
+    # format the LUKS container
+    mkfs.ext4 /dev/mapper/crypt
     ```
 
 1. Optionally, configure LVM
@@ -59,10 +71,10 @@ This is a common method for full system encryption, and uses two disk partitions
     
     The rest of the instructions will assume at minimum that you have created `/` with the name `root`, e.g. `lvcreate -n root -l <size> lvm` 
 
-3. Run the install script:
-
+3. Run the install script
+    
     ```
-    sudo bash lvm-on-luks <disk> <partition> install clearboot
+    bash lvm-on-luks $disk $efi_partition $boot_partition $luks_partition clearboot
     ```
     
 4. Partitions and bootloader should be set up as follows:
