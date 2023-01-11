@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
 
-setup() {
+setup_mounts() {
+
+    echo "      efi: $efi"
+    echo "     boot: $boot"
+    echo "root_luks: $root_luks"
+    echo "root_ext4: $root_ext4"
+    echo ""
+
+    if [[ ! -e $efi ]] || [[ ! -e $efi ]] || [[ ! -e $root_luks ]] || [[ ! -e $root_ext4 ]]; then
+        echo "check mounts!"
+        exit
+    fi
 
     read -p "press enter to continue..."
     
@@ -21,14 +32,14 @@ setup() {
 
 clearboot() {
 
-    setup
+    setup_mounts
     chroot /mnt bash lvm-on-luks $1 $2 $3 $4 postinstall_clearboot
 
 }
 
 encryptedboot() {
 
-    setup
+    setup_mounts
 
     # copy crypto_keyfile script and 
     cp crypto_keyfile /mnt/crypto_keyfile 
@@ -121,16 +132,5 @@ if [[ -e "/dev/mapper/lvm-root" ]]; then
 else
     root_ext4=/dev/mapper/crypt
 fi
-
-echo "      efi: $efi"
-echo "     boot: $boot"
-echo "root_luks: $root_luks"
-echo "root_ext4: $root_ext4"
-echo ""
-
-if [[ ! -e $efi ]] || [[ ! -e $efi ]] || [[ ! -e $root_luks ]] || [[ ! -e $root_ext4 ]]; then
-    echo "check mounts!"
-    exit
-fi
-
+    
 $5 $@
