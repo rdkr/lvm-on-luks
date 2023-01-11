@@ -1,8 +1,8 @@
 # lvm-on-luks
 
-Sets up full partition encryption for Ubuntu using LUKS and GRUB2 and optionally LVM and Secure Boot.
+Set up full partition encryption for Ubuntu using LUKS and GRUB2 and optionally LVM and Secure Boot for multi-boot systems.
 
-These instructions bridge a gap left by Ubiquity, the Ubuntu installer, which supports either full disk encryption or no encryption. When dual booting or otherwise wanting to retain other disk partitions, these instructions can be used to set up an encrypted Ubuntu OS partition.
+These instructions bridge a gap left by Ubiquity, the Ubuntu installer, which supports either full disk encryption or no encryption. When dual/multi-booting or otherwise wanting to retain other disk partitions, these instructions can be used to set up an encrypted Ubuntu OS partition.
 
 These instructions were most recently developed / tested with Kubuntu 22.10 on a UEFI system with an NVMe drive using LUKS and Secure Boot but not LVM. Previous iterations have been used with some combination of the aforementioned and: Ubuntu or Arch Linux, with MBR, and with SATA drives.
 
